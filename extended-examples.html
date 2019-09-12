@@ -1,0 +1,1128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <meta name="author" content="Martin Sulzmann" />
+  <title>Extended Examples</title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+  </style>
+  <link rel="stylesheet" type="text/css" media="screen, projection, print"
+    href="http://www.w3.org/Talks/Tools/Slidy2/styles/slidy.css" />
+  <script src="http://www.w3.org/Talks/Tools/Slidy2/scripts/slidy.js"
+    charset="utf-8" type="text/javascript"></script>
+</head>
+<body>
+<div class="slide titlepage">
+  <h1 class="title">Extended Examples</h1>
+  <p class="author">
+Martin Sulzmann
+  </p>
+</div>
+<div id="overview" class="slide section level1">
+<h1>Overview</h1>
+<ul>
+<li><p>Parser combinators</p></li>
+<li><p>Regular expression derivatives</p></li>
+</ul>
+</div>
+<div id="parser-combinators" class="slide section level1">
+<h1>Parser combinators</h1>
+<p>Highlights:</p>
+<ul>
+<li><p>Playing with higher-order functions.</p></li>
+<li><p>Example of embedded (internal) domain-specific language (DSL).</p></li>
+<li><p>DSL seperated from host language via types.</p></li>
+</ul>
+<p>There are lots of different parsing approaches.</p>
+<p>For example, see LL and LR parsing.</p>
+<p>Another popular approach are <a href="Parser%20combinators">https://en.wikipedia.org/wiki/Parser_combinator</a>.</p>
+<p>Main idea:</p>
+<ul>
+<li><p>Use combinators to build parsers.</p></li>
+<li><p>Combinators are <em>fancy</em> API functions which hide much of the plumbing necessary to carry out parsing.</p></li>
+<li><p>Often, a EBNF specification can be directly translated into some sequence of combinator calls.</p></li>
+<li><p>There exists lots of parser combinator libraries for most programming languages.</p></li>
+<li><p>Compared to parsing tools such as yacc and ANTLR, the parser is embedded into the host language. So, parser combinators form an <em>internal domain-specific language (DSL)</em> (aka embedded DSL) whereas yacc and ANTLR are external DSLs.</p></li>
+</ul>
+<p>In the following, we give a (rather naive) encoding of a parser combinator library in Go.</p>
+<h2 id="what-is-a-parser">What is a parser?</h2>
+<p>A parser is a function which takes a string and yields a result and the remaining string.</p>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">type</span> Parser <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>)</code></pre></div>
+<p>where <code>interface{}</code> represents the parsing result (e.g. some abstract syntax tree) and the returning <code>string</code> represents the remaining input. As parsing may fail, we also return a Boolean value to represent either success or failure.</p>
+<p>Application of a parser on some input.</p>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">func</span> parse(f Parser, s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+    <span class="kw">return</span> f(s)
+}</code></pre></div>
+<h2 id="basic-combinators">Basic combinators</h2>
+<p>The epsilon combinator which parses the empty string. We leave the input string untouched and report as a result the empty string.</p>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">func</span> eps() Parser {
+    <span class="kw">return</span> <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+        <span class="kw">return</span> <span class="st">&quot;&quot;</span>, s, <span class="ot">true</span>
+    }
+}</code></pre></div>
+<p>A parser to accept a specific character (item).</p>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">func</span> item(x <span class="dt">byte</span>) Parser {
+    <span class="kw">return</span> <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+        <span class="kw">if</span> <span class="fu">len</span>(s) == <span class="dv">0</span> {
+            <span class="kw">return</span> <span class="dv">0</span>, s, <span class="ot">false</span>
+        } <span class="kw">else</span> <span class="kw">if</span> s[<span class="dv">0</span>] == x {
+            <span class="kw">return</span> s[<span class="dv">0</span>], s[<span class="dv">1</span>:<span class="fu">len</span>(s)], <span class="ot">true</span>
+        } <span class="kw">else</span> {
+            <span class="kw">return</span> <span class="dv">0</span>, s, <span class="ot">false</span>
+        }
+    }
+}</code></pre></div>
+<h2 id="building-higher-order-combinators">Building higher-order combinators</h2>
+<p>Build a new parser by composition of an exisisting parser.</p>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">func</span> (p1 Parser) alt(p2 Parser) Parser {
+    <span class="kw">return</span> <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+        v, rest, o := parse(p1, s)
+        <span class="kw">if</span> !o {
+            <span class="kw">return</span> parse(p2, s)
+        } <span class="kw">else</span> {
+            <span class="kw">return</span> v, rest, o
+        }
+
+    }
+}
+
+<span class="kw">func</span> (p1 Parser) seq(p2 <span class="kw">func</span>(<span class="kw">interface</span>{}) Parser) Parser {
+    <span class="kw">return</span> <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+        v, rest, o := parse(p1, s)
+        <span class="kw">if</span> !o {
+            <span class="kw">return</span> v, rest, o
+        } <span class="kw">else</span> {
+            <span class="kw">return</span> parse(p2(v), rest)
+        }
+
+    }
+
+}
+
+<span class="kw">func</span> (p1 Parser) conc(p2 Parser) Parser {
+    <span class="kw">return</span> p1.seq(<span class="kw">func</span>(v <span class="kw">interface</span>{}) Parser { <span class="kw">return</span> p2 })
+}</code></pre></div>
+<p><code>alt</code> is left-biased, if the first argument (parser) fails, we try the alternative.</p>
+<p><code>seq</code> runs two parsers in sequences. Recall that as a side product of parsing we usually expect to obtain a parse tree. With parser combinators the result obtained can be arbitrary. Check the type of <code>seq</code>!</p>
+<p><code>conc</code> is a specialized combinator where we simply concatenate the two parsers, ignoring the result obtained from the first parser.</p>
+<h2 id="some-simple-examples">Some simple examples</h2>
+<p>As we largely ignore here the result produced by parsing, we write a matcher function which checks if our parser matches some input string.</p>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">func</span> matcher(p Parser, s <span class="dt">string</span>) <span class="dt">bool</span> {
+    _, rest, o := parse(p, s)
+    <span class="kw">return</span> rest == <span class="st">&quot;&quot;</span> &amp;&amp; o
+}
+
+
+ex0 := item(&#39;c&#39;)
+ex1 := item(&#39;a&#39;).alt(item(&#39;b&#39;))
+ex2 := ex0.conc(ex1)</code></pre></div>
+<h2 id="more-expressive-parser-combinators">More expressive parser combinators</h2>
+<p>Most parser combinator libraries provide further combinators so we can even deal with left-recursive, ambiguous and even beyond context-free grammars. For details see here <a href="Parser%20combinators">https://en.wikipedia.org/wiki/Parser_combinator</a>.</p>
+<p>In fact, some of these more expressive combinators can be directly encoded in terms of the host language. In the following, we show how to encode Kleene star.</p>
+<p>Consider the regular expression</p>
+<pre><code>a* c</code></pre>
+<p>which can also be defined in terms of the following CFG productions</p>
+<pre><code>A -&gt; a A | c</code></pre>
+<p>Observation:</p>
+<ul>
+<li><p>Our host language Go supports recursive function.</p></li>
+<li><p>Encode the Kleene star via a recursive function yielding a parser for the above grammar.</p></li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">func</span> kleene() Parser {
+    <span class="kw">return</span> item(&#39;c&#39;).alt(item(&#39;a&#39;).seq(<span class="kw">func</span>(v <span class="kw">interface</span>{}) Parser { <span class="kw">return</span> kleene() }))
+}</code></pre></div>
+<p>Some points to note.</p>
+<ul>
+<li><p>Symbol <code>c</code> tells us to stop, hence, is tried first. Recall that <code>alt</code> is left-biased.</p></li>
+<li><p>We can NOT write (the more direct) combinator program</p></li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">func</span> kleene2() Parser {
+    <span class="kw">return</span> item(&#39;c&#39;).alt(item(&#39;a&#39;).conc(kleene2()))
+}</code></pre></div>
+<p>Go is a <em>strictly</em> evaluate language and the above would immediately lead to a stack overflow. Hence, we need to 'hide' the recursive call within a (lambda) function.</p>
+<p>Aside. In the <em>lazy</em> language Haskell, the more direct encoding is possible because program parts are lazily evaluated (i.e. only when needed).</p>
+<h2 id="short-summary">Short Summary</h2>
+<ul>
+<li><p>Parser combinators are domain-specific language embedded into some host language (here Go).</p></li>
+<li><p>Our host language Go is strongly type, so we can statically guarantee that our parsers are &quot;well-formed&quot; (a parser is a composition of existing parsers).</p></li>
+<li><p>We make use of recursion available in the host language to extend the expressiveness of our parser combinator language (see encoding of Kleene star).</p></li>
+</ul>
+<h2 id="complete-source-code">Complete source code</h2>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">package</span> main
+
+<span class="co">// Parser combinators https://en.wikipedia.org/wiki/Parser_combinator</span>
+
+<span class="kw">import</span> <span class="st">&quot;fmt&quot;</span>
+
+<span class="kw">type</span> Parser <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>)
+
+<span class="kw">func</span> parse(f Parser, s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+    <span class="kw">return</span> f(s)
+}
+
+<span class="kw">func</span> eps() Parser {
+    <span class="kw">return</span> <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+        <span class="kw">return</span> <span class="st">&quot;&quot;</span>, s, <span class="ot">true</span>
+    }
+}
+
+<span class="kw">func</span> item(x <span class="dt">byte</span>) Parser {
+    <span class="kw">return</span> <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+        <span class="kw">if</span> <span class="fu">len</span>(s) == <span class="dv">0</span> {
+            <span class="kw">return</span> <span class="dv">0</span>, s, <span class="ot">false</span>
+        } <span class="kw">else</span> <span class="kw">if</span> s[<span class="dv">0</span>] == x {
+            <span class="kw">return</span> s[<span class="dv">0</span>], s[<span class="dv">1</span>:<span class="fu">len</span>(s)], <span class="ot">true</span>
+        } <span class="kw">else</span> {
+            <span class="kw">return</span> <span class="dv">0</span>, s, <span class="ot">false</span>
+        }
+    }
+}
+
+<span class="kw">func</span> (p1 Parser) alt(p2 Parser) Parser {
+    <span class="kw">return</span> <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+        v, rest, o := parse(p1, s)
+        <span class="kw">if</span> !o {
+            <span class="kw">return</span> parse(p2, s)
+        } <span class="kw">else</span> {
+            <span class="kw">return</span> v, rest, o
+        }
+
+    }
+}
+
+<span class="kw">func</span> (p1 Parser) seq(p2 <span class="kw">func</span>(<span class="kw">interface</span>{}) Parser) Parser {
+    <span class="kw">return</span> <span class="kw">func</span>(s <span class="dt">string</span>) (<span class="kw">interface</span>{}, <span class="dt">string</span>, <span class="dt">bool</span>) {
+        v, rest, o := parse(p1, s)
+        <span class="kw">if</span> !o {
+            <span class="kw">return</span> v, rest, o
+        } <span class="kw">else</span> {
+            <span class="kw">return</span> parse(p2(v), rest)
+        }
+
+    }
+
+}
+
+<span class="kw">func</span> (p1 Parser) conc(p2 Parser) Parser {
+    <span class="kw">return</span> p1.seq(<span class="kw">func</span>(v <span class="kw">interface</span>{}) Parser { <span class="kw">return</span> p2 })
+}
+
+<span class="kw">func</span> matcher(p Parser, s <span class="dt">string</span>) <span class="dt">bool</span> {
+    _, rest, o := parse(p, s)
+    <span class="kw">return</span> rest == <span class="st">&quot;&quot;</span> &amp;&amp; o
+}
+
+<span class="kw">func</span> kleene() Parser {
+    <span class="kw">return</span> item(&#39;c&#39;).alt(item(&#39;a&#39;).seq(<span class="kw">func</span>(v <span class="kw">interface</span>{}) Parser { <span class="kw">return</span> kleene() }))
+}
+
+<span class="kw">func</span> kleene2() Parser {
+    <span class="kw">return</span> item(&#39;c&#39;).alt(item(&#39;a&#39;).conc(kleene2()))
+}
+
+
+}
+
+<span class="kw">func</span> main() {
+
+    fmt.Printf(<span class="st">&quot;%b&quot;</span>, matcher(kleene2(), <span class="st">&quot;ac&quot;</span>))
+    
+
+    ex0 := item(&#39;c&#39;)
+    fmt.Printf(<span class="st">&quot;%b&quot;</span>, matcher(ex0, <span class="st">&quot;c&quot;</span>))
+    fmt.Printf(<span class="st">&quot;%b&quot;</span>, matcher(ex0, <span class="st">&quot;cd&quot;</span>))
+
+    ex1 := item(&#39;a&#39;).alt(item(&#39;b&#39;))
+    fmt.Printf(<span class="st">&quot;%b&quot;</span>, matcher(ex1, <span class="st">&quot;a&quot;</span>))
+    fmt.Printf(<span class="st">&quot;%b&quot;</span>, matcher(ex1, <span class="st">&quot;b&quot;</span>))
+    fmt.Printf(<span class="st">&quot;%b&quot;</span>, matcher(ex1, <span class="st">&quot;c&quot;</span>))
+    fmt.Printf(<span class="st">&quot;%b&quot;</span>, matcher(ex1, <span class="st">&quot;ab&quot;</span>))
+
+    ex2 := ex0.conc(ex1)
+    fmt.Printf(<span class="st">&quot;%b&quot;</span>, matcher(ex2, <span class="st">&quot;cb&quot;</span>))
+    fmt.Printf(<span class="st">&quot;%b&quot;</span>, matcher(ex2, <span class="st">&quot;ad&quot;</span>))        
+
+}</code></pre></div>
+</div>
+<div id="regular-expression-derivatives" class="slide section level1">
+<h1>Regular expression derivatives</h1>
+<p>We show how to mimic pattern matching over algebraic data types in Go.</p>
+<h2 id="some-theory-on-regular-expressions-first">Some theory on regular expressions first</h2>
+<h3 id="syntax">Syntax</h3>
+<p>In EBNF Syntax:</p>
+<pre><code>
+r,s ::= x | y | z | ...         Symbols aka letters taken from a finite alphabet
+    |  epsilon                  Empty word
+    |  phi                      Empty language
+    |  r + r                    Alternatives
+    |  r . r                    Sequence aka concatenation
+    |  r*                       Kleene star
+
+u,v,w ::= epsilon               empty word
+      |  w . w                  concatenation</code></pre>
+<p>Sigma denotes the finite set of alphabet symbols.</p>
+<p>Regular expressions are popular formalism to specify (infinitely many) patterns of input.</p>
+<p>For example,</p>
+<pre><code> (open . (read + write)* . close)*</code></pre>
+<p>specifies the valid access patterns of a resource usage policy.</p>
+<p>We assume that <code>open</code>, <code>read</code>, <code>write</code>, <code>close</code> are the primitive events (symbols) which will be recorded during a program run.</p>
+<h3 id="membership">Membership</h3>
+<p><code>L(r)</code> denotes the set of words represented by the regular expression r.</p>
+<p>Standard (denotational) formulation of L(r):</p>
+<pre><code>L(x) = { x }
+
+L(epsilon) = { epsilon }
+
+L(phi) = { }
+
+L(r + s) = { w | w in L(r) or w in L(s) }
+
+L(r . s) = { v . w | v in L(r) and w in L(s) }
+
+L(r*) = { epsilon } cap { w_1 . ... . w_n | w_1, ..., w_n in L(r) and n &gt;=1 }</code></pre>
+<h4 id="membership-test">Membership Test</h4>
+<p>We ask the question. Given a regular expression r and a word w does it hold that w is an element in L(r)? The classical approach is to turn the regular expression into an automata (for example via the Thompson NFA construction).</p>
+<p>For example, consider the regular expression</p>
+<pre><code>a* . b . c*</code></pre>
+<p>that denotes the language of an arbitrary sequence of a's followed by a b, followed by an arbitrary sequence of c's. We do not strictly follow the Thompson method, rather we highlight the principle of turning regular expressions into automata.</p>
+<p>Here is a possible automata.</p>
+<pre><code>1 --a--&gt; 1
+1 --b--&gt; 2
+2 --c--&gt; 2
+
+initial: 1
+final: 2</code></pre>
+<p>There are two states, 1 and 2. State 1 is the initial state and state 2 is the final state. A transitition such as <code>1 --a--&gt; 1</code> states if we are in state 1, we can consume the input symbol a and then reach state 1 (so we effectively loop for a's). If the input symbol is b, we reach state 2. What if the input symbol is c? There does not seem to be transition labeled with c. A common assumption is to omit transitions that lead to a stuck state.</p>
+<p>We complete the above automata by adding all such transitions.</p>
+<pre><code>1 --c--&gt; 3
+2 --a--&gt; 3
+2 --b--&gt; 3
+3 --a--&gt; 3
+3 --b--&gt; 3
+3 --c--&gt; 3</code></pre>
+<p>If in state 1 and the input symbol is c, we reach state 3. State 3 is just some state (not final) and effectively represents the error state (the input word is not part of the language).</p>
+<p>To summarize. The purpose of an automata is to consume symbols and executing transitions. In each step, we consume an input symbol and apply one of the transitions.</p>
+<p>For example, consider input &quot;ccba&quot;.</p>
+<pre><code>1 --c--&gt; 1 --c--&gt; 1 --b--&gt; 2 --a--&gt; 2</code></pre>
+<p>State 2 is final. Hence, &quot;ccba&quot; is word of the language.</p>
+<p>As another example, consider input &quot;ccbb&quot;.</p>
+<pre><code>1 --c--&gt; 1 --c--&gt; 1 --b--&gt; 2 --b--&gt; 3</code></pre>
+<p>State 3 is not final. So, &quot;ccbb&quot; is not a word of the language.</p>
+<h4 id="membership-test-via-derivatives">Membership Test via Derivatives</h4>
+<p>We consider an alternative method to carry out the membership test based on Brzozowski <a href="">https://en.wikipedia.org/wiki/Brzozowski_derivative</a>. He introduced a symbolic method to construct an automata from a regular expression based on the concept of derivatives.</p>
+<p>Given some expression r and a symbol x, we obtain the <em>derivative</em> of r w.r.t. x, written d(r,x), by taking way the leading symbol x from r.</p>
+<p>In semantic terms, d(r,x) can be described as follows:</p>
+<pre><code>L(d(r,x)) = x \ L(r)</code></pre>
+<ul>
+<li><p>x  L(r) denotes the left quotient, i.e. the language <code>{ w | x . w in L(r)}</code>.</p>
+<ul>
+<li>We write <code>.</code> to denote concatenation. In some exposition this is left silent, i.e. <code>x w</code>.</li>
+</ul></li>
+<li><p>Hence, the derivative <code>d(r,x)</code> denotes the set of all words from L(R) where the leading symbol x has been removed.</p></li>
+</ul>
+<p>Thus, it is easy to solve the word problem. Let <code>w</code> be a word consisting of symbols <code>x1 . x2 .... xn-1 . xn</code>.</p>
+<p>Compute</p>
+<pre><code>d(r,x1) = r1
+d(r1,x2) = r2
+...
+d(rn-1,xn) = rn</code></pre>
+<p>That is, we repeatidely build the derivative of r w.r.t symbols xi.</p>
+<p>Check if the final expression <code>rn</code> is nullable. An expression s is <em>nullable</em> if epsilon in L(s).</p>
+<h3 id="formalizing-nullability-and-the-derivative-operation">Formalizing Nullability and the Derivative operation</h3>
+<p>It is surprisingly simply to decide nullability by observing the structure of regular expression.</p>
+<p>We write <code>n(r)</code> to denote the nullability test which yields a Boolean value (true/false).</p>
+<pre><code>n(x) where xi is a symbol never holds.
+
+n(epsilon) always holds.
+
+n(phi) never holds.
+
+n(r + s) holds iff n(r) holds or n(s) holds.
+
+n(r . s) holds iff n(r) holds and n(s) holds.
+
+n(r*) always holds.</code></pre>
+<p>A similar approach (definition by structural recursion) works for the derivative operation.</p>
+<p>We write <code>d(r,x)</code> to denote the derivative obtained by extracting the leading symbol <code>x</code> from expression <code>r</code>. For each derivative, we wish that the following holds: <code>L(d(r,x)) = x \ L(r)</code>.</p>
+<p>As in case of the nullability test, the derivative operation is defined by observing the structure of regular expression patterns. Instead of a Boolean value, we yield another expression (the derivative).</p>
+<pre><code>d(x,y) =   either epsilon if x == y or phi otherwise
+
+d(epsilon,y) = phi
+
+d(phi,y)     = phi
+
+d(r + s, y)  = d(r,y) + d(s,y)
+
+d(r . s, y)  =  if n(r)
+                then d(r,y) . s +  d(s,y)
+                else d(r,y) . s
+
+d(r*, y)     = d(r,y) . r*</code></pre>
+<h2 id="examples">Examples</h2>
+<p>Let's consider some examples to understand the workings of the derivative and nullability function.</p>
+<p>We write <code>r -x-&gt; d(r,x)</code> to denote application of the derivative on some expression <code>r</code> with respect to symbol <code>x</code>.</p>
+<pre><code>       x*
+-x-&gt;   d(x*,x)
+       = d(x,x) . x*       
+       = epsilon . x*      
+
+-x-&gt;   epsilon . x*
+       = d(epsilon,x) . x* + d(x*,x)     -- n(epsilon) yields true
+       = phi . x* + epsilon . x*</code></pre>
+<p>So repeated applicaton of the derivative on <code>x*$ for input string &quot;x.x&quot; yields</code>phi . x* + epsilon . x*`. Let's carry out the nullability function on the final expression.</p>
+<pre><code>    n(phi . x* + epsilon . x*)
+    = n(phi .x*) or n(epsilon . x*)
+    = (n(phi) and n(x*)) or (n(epsilon) and n(x*))
+    = (false and true) or (true and true)
+    = false or true
+    = true</code></pre>
+<p>The final expression <code>phi . x* + epsilon . x*</code> is nullable. Hence, we can argue that expression <code>x*</code> matches the input word &quot;x.x&quot;.</p>
+<h2 id="implementation-in-go">Implementation in Go</h2>
+<p>We make use of (extensible) interfaces to mimic pattern matching in Go.</p>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">package</span> main
+
+<span class="kw">import</span> <span class="st">&quot;fmt&quot;</span>
+
+<span class="kw">type</span> RE <span class="kw">interface</span> {
+    deriv(<span class="dt">byte</span>) RE
+    nullable() <span class="dt">bool</span>
+}
+
+<span class="kw">type</span> Eps <span class="dt">int</span>
+<span class="kw">type</span> Phi <span class="dt">int</span>
+<span class="kw">type</span> Letter <span class="dt">byte</span>
+<span class="kw">type</span> Kleene [<span class="dv">1</span>]RE
+<span class="kw">type</span> Alt [<span class="dv">2</span>]RE
+<span class="kw">type</span> Seq [<span class="dv">2</span>]RE
+
+<span class="co">// test if regex is nullable</span>
+<span class="kw">func</span> (r Eps) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> <span class="ot">true</span>
+}
+<span class="kw">func</span> (r Phi) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> <span class="ot">false</span>
+}
+<span class="kw">func</span> (r Letter) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> <span class="ot">false</span>
+}
+
+<span class="kw">func</span> (r Kleene) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> <span class="ot">true</span>
+}
+<span class="kw">func</span> (r Alt) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> r[<span class="dv">0</span>].nullable() || r[<span class="dv">1</span>].nullable()
+}
+<span class="kw">func</span> (r Seq) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> r[<span class="dv">0</span>].nullable() &amp;&amp; r[<span class="dv">1</span>].nullable()
+}
+
+<span class="co">// build the derivative wrt x</span>
+<span class="kw">func</span> (r Eps) deriv(x <span class="dt">byte</span>) RE {
+    <span class="kw">return</span> Phi(<span class="dv">1</span>)
+}
+<span class="kw">func</span> (r Phi) deriv(x <span class="dt">byte</span>) RE {
+    <span class="kw">return</span> Phi(<span class="dv">1</span>)
+}
+
+<span class="kw">func</span> (r Letter) deriv(x <span class="dt">byte</span>) RE {
+    y := (<span class="dt">byte</span>)(r)
+    <span class="kw">if</span> x == y {
+        <span class="kw">return</span> Eps(<span class="dv">1</span>)
+    } <span class="kw">else</span> {
+        <span class="kw">return</span> Phi(<span class="dv">1</span>)
+    }
+}
+
+<span class="kw">func</span> (r Kleene) deriv(x <span class="dt">byte</span>) RE {
+    <span class="kw">return</span> (Seq)([<span class="dv">2</span>]RE{r[<span class="dv">0</span>].deriv(x), r})
+}
+
+<span class="kw">func</span> (r Alt) deriv(x <span class="dt">byte</span>) RE {
+    <span class="kw">return</span> (Alt)([<span class="dv">2</span>]RE{r[<span class="dv">0</span>].deriv(x), r[<span class="dv">1</span>].deriv(x)})
+}
+
+<span class="kw">func</span> (r Seq) deriv(x <span class="dt">byte</span>) RE {
+    <span class="kw">if</span> r[<span class="dv">0</span>].nullable() {
+        <span class="kw">return</span> (Alt)([<span class="dv">2</span>]RE{(Seq)([<span class="dv">2</span>]RE{r[<span class="dv">0</span>].deriv(x), r[<span class="dv">1</span>]}), r[<span class="dv">1</span>].deriv(x)})
+    } <span class="kw">else</span> {
+        <span class="kw">return</span> (Seq)([<span class="dv">2</span>]RE{r[<span class="dv">0</span>].deriv(x), r[<span class="dv">1</span>]})
+    }
+}
+
+<span class="kw">func</span> testRegEx() {
+    <span class="kw">var</span> c Letter = Letter(&#39;c&#39;)
+    eps := (Eps)(<span class="dv">1</span>)
+    phi := (Phi)(<span class="dv">1</span>)
+    r1 := (Alt)([<span class="dv">2</span>]RE{eps, phi})
+    r2 := (Seq)([<span class="dv">2</span>]RE{c, r1})
+
+    fmt.Printf(<span class="st">&quot;%b </span><span class="ch">\n</span><span class="st">&quot;</span>, (r2.deriv(&#39;c&#39;)).nullable())
+}
+
+<span class="kw">func</span> main() {
+
+    testRegEx()
+}</code></pre></div>
+<h2 id="summary">Summary</h2>
+<p>Each pattern matching function is method of the <code>RE</code> inferface.</p>
+<p>Each case of the description of regular expression is represented by a specific type.</p>
+<p>The methods of the <code>RE</code> inferface provide an implementation for each case.</p>
+</div>
+<div id="some-further-regex-exercises" class="slide section level1">
+<h1>Some (further) regex exercises</h1>
+<ul>
+<li>Parse the term “aa” with the regex a</li>
+<li>Parse the term “b” with the regex a + b</li>
+<li>Parse the term “c” with the regex a + b</li>
+<li>Parse the term “ab” with the regex a . b</li>
+<li>Parse the term “ab” with the regex (a + b) . (a + b)</li>
+<li>Parse the term &quot;aa&quot; with the regex a*</li>
+<li>Parse the term “abb” with the regex a.b*</li>
+<li>Parse the term “acd” with the regex a . (b + c)* . d</li>
+</ul>
+<h2 id="solutions">Solutions</h2>
+<h3 id="by-hand-calculations">By hand calculations</h3>
+<ul>
+<li>Parse the term “aa” with the regex a</li>
+</ul>
+<pre><code>      a
+-a-&gt;  d(a, a)
+      = epsilon
+-a-&gt;  d(epsilon, a)
+      = phi
+        
+check nullability
+
+      n(phi)
+      = false</code></pre>
+<ul>
+<li>Parse the term “b” with the regex a + b</li>
+</ul>
+<pre><code>      a + b
+-b-&gt;  d(a + b, b)
+      = phi + epsilon
+        
+check nullability
+
+      n(phi + epsilon)
+      = n(phi) or n(epsilon)
+      = false or true
+      = true</code></pre>
+<ul>
+<li>Parse the term “c” with the regex a + b</li>
+</ul>
+<pre><code>      a + b
+-c-&gt;  d(a + b, c)
+      = phi + phi
+        
+check nullability
+
+      n(phi + phi)
+      = n(phi) or n(phi)
+      = false or false
+      = false</code></pre>
+<ul>
+<li>Parse the term “ab” with the regex a . b</li>
+</ul>
+<pre><code>      a . b
+-a-&gt;  d(a . b, a)         -- n(a) yields false
+      = d(a, a) . b
+      = epsilon . b
+-b-&gt;  d(epsilon . b, b)   -- n(epsilon) yields true
+      = d(epsilon, b) . b + d(b, b)
+      = (phi . b) + epsilon
+        
+check nullability
+
+      n((phi . b) + epsilon)
+      = n(phi . b) or n(epsilon)
+      = (n(phi) and n(b)) or n(epsilon)
+      = false or true
+      = true</code></pre>
+<ul>
+<li>Parse the term “ab” with the regex (a + b) . (a + b)</li>
+</ul>
+<pre><code>        (a + b) . (a + b)
+-a-&gt;    d((a + b) . (a + b), a)   -- n(a + b) yields false
+        = d(a + b, a) . (a + b)
+        = (epsilon + phi) . (a + b)
+-b-&gt;    d((epsilon + phi) . (a + b), b)   -- n(epsilon + phi) yields true
+        = (d(epsilon + phi, b) . (a + b)) + d(a + b, b)
+        = ((phi + phi) . (a + b)) + (phi + epsilon)
+        
+check nullability
+
+        n(((phi + phi) . (a + b)) + (phi + epsilon))
+        = n((phi + phi) . (a + b)) or n(phi + epsilon)
+        = (n(phi or phi) and n(a or b)) or n(phi + epsilon)
+        = (false and false) or true
+        = false or true
+        = true
+</code></pre>
+<ul>
+<li><ul>
+<li>Parse the term &quot;aa&quot; with the regex a*</li>
+</ul></li>
+</ul>
+<pre><code>       a*
+-a-&gt;   d(a*,a)
+       = d(a,a) . a*
+       = epsilon . a*
+-a-&gt;   d(epsilon .a*, a)
+       = d(epsilon, a).a* + d(a*,a)        -- n(epsilon) yields true
+       = phi.a* + epsilon.a*
+
+We assume that * binds tigher than . which binds tigher than +.
+So, phi.a* is interpreted as phi . (a*) adding some explicit parantheses.</code></pre>
+<ul>
+<li>Parse the term “abb” with the regex a.b*</li>
+</ul>
+<pre><code>        a . b*
+-a-&gt;    d(a . b*, a)        -- n(a) yields false
+        = d(a, a) . b*
+        = epsilon . b*
+-b-&gt;    d(epsilon . b*, b)   -- n(epsilon) yields true
+        = (d(epsilon, b) . b*) + d(b*, b)
+        = (phi . b*) + (epsilon . b*)
+-b-&gt;    d((phi . b*) + (epsilon . b*), b)
+        = d(phi . b*, b) + d(epsilon . b*, b)  -- left side n(phi) yields false, right side n(epsilon) yields true
+        = (phi . b*) + ((phi . b*) + (epsilon . b*))
+        
+check nullability
+
+        n((phi . b*) + ((phi . b*) + (epsilon . b*)))
+        = n(phi . b*) or (n(phi . b*) or n(epsilon . b*))
+        = false or (false or true)
+        = false or true
+        = true</code></pre>
+<ul>
+<li>Parse the term “acd” with the regex a . (b + c)* . d</li>
+</ul>
+<pre><code>        a . (b + c)* . d
+-a-&gt;    d(a . (b + c)* . d, a)        -- n(a) yields false
+        = d(a, a) . ((b + c)* . d)
+        = epsilon . ((b + c)* . d)
+-c-&gt;    d(epsilon . ((b + c)* . d), b) -- n(epsilon) yields true
+        d(epsilon, b) . ((b + c)* . d) + d((b + c)* . d), b)
+        phi . ((b + c)* . d)) + ((((eps + phi) . (b + c)*) . d) + phi)
+-d-&gt;    d(phi . ((b + c)* . d)) + ((((phi + epsilon) . (b + c)*) . d) + phi), c)
+        = d(phi . ((b + c)* . d)), c) + d((((phi + epsilon) . (b + c)*) . d) + phi, c)
+        = phi . ((b + c)* . d)) + (((((phi + phi) . (b + c)*) + ((phi + phi) . (b + c)*)) . d) + eps) + phi
+
+check nullability
+
+        n(phi . ((b + c)* . d)) + n(((((phi + phi) . (b + c)*) + ((phi + phi) . (b + c)*)) . d) + eps) + phi)
+        = n(phi . ((b + c)* . d))) or n((((((phi + phi) . (b + c)*) + ((phi + phi) . (b + c)*)) . d) + eps) + phi)
+        = (n(n(phi) and (n((b + c)*) and n(d)))) or n(((((n(phi + phi) and n((b + c)*)) or (n(phi + phi) and n((b + c)*))) and n(d)) or n(eps)) or n(phi))
+        = (fales and (true and false)) or (((((false and true) or (false and true)) and false) or true) or false)
+        = (false and false) or (((((false) or (false)) and false) or true) or false)
+        = false or (((false and false) or true) or false)
+        = false or ((false or true) or false)
+        = false or (true or false)
+        = false or true
+        = true</code></pre>
+<h3 id="by-running-through-the-implementation.">By running through the implementation.</h3>
+<p><em>We use the pretty-print extension discussed in the upcoming exercise</em></p>
+<p>Running the below</p>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go">    <span class="co">// (a+b)*</span>
+    a := Letter (&#39;a&#39;)
+        b := Letter (&#39;b&#39;)
+        r := (Kleene)([<span class="dv">1</span>]RE{(Alt)([]RE{a,b})})
+
+
+    fmt.Printf(<span class="st">&quot;r = %s </span><span class="ch">\n</span><span class="st">&quot;</span>, r.pretty())
+
+        <span class="co">// match r against &quot;ab&quot;</span>
+
+        <span class="co">// match a</span>
+    r1 := r.deriv(&#39;a&#39;)
+        fmt.Printf(<span class="st">&quot;deriv(r,a) = %s </span><span class="ch">\n</span><span class="st">&quot;</span>, r1.pretty())
+
+        <span class="co">// match b</span>
+        r2 := r1.deriv(&#39;b&#39;)
+        fmt.Printf(<span class="st">&quot;deriv(deriv(r,a),b) = %s </span><span class="ch">\n</span><span class="st">&quot;</span>, r2.pretty())
+
+        <span class="co">// nullability check</span>
+        fmt.Printf(<span class="st">&quot;%b </span><span class="ch">\n</span><span class="st">&quot;</span>, r2.nullable())       </code></pre></div>
+<p>yields</p>
+<pre><code>r = ((a+b))* 
+deriv(r,a) = ((eps+phi).((a+b))*) 
+deriv(deriv(r,a),b) = (((phi+phi).((a+b))*)+((phi+eps).((a+b))*)) 
+%!b(bool=true) </code></pre>
+</div>
+<div id="some-further-exercises" class="slide section level1">
+<h1>Some (further) exercises</h1>
+<h2 id="matching-with-derivatives-simple">Matching with derivatives (simple)</h2>
+<p>Based on the <code>nullable</code> and <code>deriv</code> method it is easy to write a <code>matcher</code> function to check if a regular expression matches a string.</p>
+<ol style="list-style-type: decimal">
+<li><p>We repeatedly build derivatives.</p></li>
+<li><p>Once the string is empty, we check if the resulting regular expression is nullable.</p></li>
+</ol>
+<p>Implement such a <code>matcher</code> function in Go.</p>
+<h2 id="simplifications-advanced">Simplifications (advanced)</h2>
+<p>If we repeatedly build the derivative, the size of the resulting terms is growing.</p>
+<p>For example, consider the following example where we write write <code>r --x--&gt; s</code> for <code>s = d(r,x)</code>.</p>
+<pre><code>       x*
+--x--&gt; d(x,x) . x*
+       = epsilon . x*
+--x--&gt; d(epsilon . x*, x)
+       = d(epsilon,x) . x* + d(x*,x)
+       = phi . x* + epsilon . x*
+--x--&gt; d(phi . x* + epsilon . x*, x)
+       = d(phi . x*, x) + d(epsilon . x*, x)
+       = phi . x* + phi . x* + epsilon . x*</code></pre>
+<p>and so on.</p>
+<p>It is desirable to keep the size of the regular expressions small.</p>
+<p><a href="https://en.wikipedia.org/wiki/Brzozowski_derivative">Brzozowski</a> observed that few (syntactic) simplification rules are sufficient to ensure that the size of derivatives will not grow.</p>
+<pre><code>(Idempotence)  r + r = r
+
+(Associativity) (r + s) + t = r + (s + t)
+
+(Commutativity) r + s = s + r</code></pre>
+<p>The (Idempotence) rule says in case of syntactically equal elements in an alternative, we can drop one of the elements.</p>
+<p>The (Associativity) and (Commutativity) rule are for convenience so that we can move (syntactically) equal elements next to each other.</p>
+<p>For example, consider</p>
+<pre><code>           (r + s) + r
+=_Comm     r + (r + s)
+=_Assoc    (r + r) + s
+=_Idemp    r + s</code></pre>
+<h3 id="hints">Hints</h3>
+<p>There is no need to perform simplifications under a Kleene star.</p>
+<p>The main challenge is to re-order alternative elements such that we can apply the (Idempotence) rule. For example, consider</p>
+<pre><code>           (r + s) + (t + r)
+=_Comm     (r + s) + (r + t)
+=_Comm     (s + r) + (r + t)
+=_Assoc    s + (r + (r + t))
+=_Assoc    s + ((r + t) + t)
+=_Idemp    s + (r + t)</code></pre>
+<p>Here is a possible approach how to deal with such cases.</p>
+<ol style="list-style-type: decimal">
+<li><p>Introduce an intermediate representation of regular expressions where alternatives are kept in a list.</p></li>
+<li><p>Transform into this intermediate form.</p></li>
+<li><p>Remove any duplicates into a list of alternatives.</p></li>
+<li><p>Transform the intermediate back into the given format for regular expressions.</p></li>
+</ol>
+<h2 id="some-sample-solutions">Some sample solutions</h2>
+<h3 id="derivative-matcher">Derivative matcher</h3>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">func</span> matcher(r RE, s <span class="dt">string</span>) <span class="dt">bool</span> {
+    <span class="kw">var</span> b <span class="dt">bool</span>
+    <span class="kw">if</span> <span class="fu">len</span>(s) == <span class="dv">0</span> {
+        b = r.nullable()
+    } <span class="kw">else</span> {
+        r2 := r.deriv(s[<span class="dv">0</span>])
+        b = matcher(r2, s[<span class="dv">1</span>:<span class="fu">len</span>(s)])
+    }
+    <span class="kw">return</span> b
+     
+}</code></pre></div>
+<h3 id="simplifications">Simplifications</h3>
+<div class="sourceCode"><pre class="sourceCode go"><code class="sourceCode go"><span class="kw">package</span> main
+
+<span class="kw">import</span> <span class="st">&quot;fmt&quot;</span>
+
+<span class="kw">type</span> RE <span class="kw">interface</span> {
+    pretty() <span class="dt">string</span>
+    deriv(<span class="dt">byte</span>) RE
+    nullable() <span class="dt">bool</span>
+    testSeq() (RE, RE, <span class="dt">bool</span>)
+    getAlt() []RE
+    rightAssoc() RE
+    noDups() RE
+    flatten() RE
+}
+
+<span class="kw">type</span> Eps <span class="dt">int</span>
+<span class="kw">type</span> Phi <span class="dt">int</span>
+<span class="kw">type</span> Letter <span class="dt">byte</span>
+<span class="kw">type</span> Kleene [<span class="dv">1</span>]RE
+<span class="kw">type</span> Alt []RE
+<span class="kw">type</span> Seq [<span class="dv">2</span>]RE
+
+<span class="co">// pretty printer</span>
+<span class="kw">func</span> (r Eps) pretty() <span class="dt">string</span> {
+    <span class="kw">return</span> <span class="st">&quot;eps&quot;</span>
+}
+
+<span class="kw">func</span> (r Phi) pretty() <span class="dt">string</span> {
+    <span class="kw">return</span> <span class="st">&quot;phi&quot;</span>
+}
+
+<span class="kw">func</span> (r Letter) pretty() <span class="dt">string</span> {
+    b := []<span class="dt">byte</span>{(<span class="dt">byte</span>)(r)}
+    <span class="kw">return</span> (<span class="dt">string</span>)(b)
+}
+
+<span class="kw">func</span> (r Alt) pretty() <span class="dt">string</span> {
+    <span class="kw">if</span> <span class="fu">len</span>(r) == <span class="dv">0</span> {
+        <span class="kw">return</span> <span class="st">&quot;&quot;</span>
+    }
+
+    <span class="kw">var</span> x <span class="dt">string</span>
+    x = r[<span class="dv">0</span>].pretty()
+    <span class="kw">for</span> i, e := <span class="kw">range</span> r {
+        <span class="kw">if</span> !(i == <span class="dv">0</span>) {
+            x += <span class="st">&quot;+&quot;</span> + e.pretty()
+        }
+    }
+    <span class="kw">return</span> (<span class="st">&quot;(&quot;</span> + x + <span class="st">&quot;)&quot;</span>)
+}
+
+<span class="kw">func</span> (r Seq) pretty() <span class="dt">string</span> {
+    <span class="kw">return</span> (<span class="st">&quot;(&quot;</span> + r[<span class="dv">0</span>].pretty() + <span class="st">&quot;.&quot;</span> + r[<span class="dv">1</span>].pretty() + <span class="st">&quot;)&quot;</span>)
+}
+
+<span class="kw">func</span> (r Kleene) pretty() <span class="dt">string</span> {
+    <span class="kw">return</span> (<span class="st">&quot;(&quot;</span> + r[<span class="dv">0</span>].pretty() + <span class="st">&quot;)*&quot;</span>)
+}
+
+<span class="co">// test if regex is nullable</span>
+<span class="kw">func</span> (r Eps) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> <span class="ot">true</span>
+}
+<span class="kw">func</span> (r Phi) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> <span class="ot">false</span>
+}
+<span class="kw">func</span> (r Letter) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> <span class="ot">false</span>
+}
+
+<span class="kw">func</span> (r Kleene) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> <span class="ot">true</span>
+}
+<span class="kw">func</span> (r Alt) nullable() <span class="dt">bool</span> {
+    <span class="kw">for</span> _, x := <span class="kw">range</span> r {
+        <span class="kw">if</span> x.nullable() {
+            <span class="kw">return</span> <span class="ot">true</span>
+        }
+    }
+    <span class="kw">return</span> <span class="ot">false</span>
+}
+<span class="kw">func</span> (r Seq) nullable() <span class="dt">bool</span> {
+    <span class="kw">return</span> r[<span class="dv">0</span>].nullable() &amp;&amp; r[<span class="dv">1</span>].nullable()
+}
+
+<span class="co">// build the derivative wrt x</span>
+<span class="kw">func</span> (r Eps) deriv(x <span class="dt">byte</span>) RE {
+    <span class="kw">return</span> Phi(<span class="dv">1</span>)
+}
+<span class="kw">func</span> (r Phi) deriv(x <span class="dt">byte</span>) RE {
+    <span class="kw">return</span> Phi(<span class="dv">1</span>)
+}
+
+<span class="kw">func</span> (r Letter) deriv(x <span class="dt">byte</span>) RE {
+    y := (<span class="dt">byte</span>)(r)
+    <span class="kw">if</span> x == y {
+        <span class="kw">return</span> Eps(<span class="dv">1</span>)
+    } <span class="kw">else</span> {
+        <span class="kw">return</span> Phi(<span class="dv">1</span>)
+    }
+}
+
+<span class="kw">func</span> (r Kleene) deriv(x <span class="dt">byte</span>) RE {
+    <span class="kw">return</span> (Seq)([<span class="dv">2</span>]RE{r[<span class="dv">0</span>].deriv(x), r})
+}
+
+<span class="kw">func</span> (r Alt) deriv(x <span class="dt">byte</span>) RE {
+    rs := []RE{}
+    <span class="kw">for</span> _, e := <span class="kw">range</span> r {
+        rs = <span class="fu">append</span>(rs, e.deriv(x))
+    }
+    <span class="kw">return</span> (Alt)(rs)
+}
+
+<span class="kw">func</span> (r Seq) deriv(x <span class="dt">byte</span>) RE {
+    <span class="kw">if</span> r[<span class="dv">0</span>].nullable() {
+        <span class="kw">return</span> (Alt)([]RE{(Seq)([<span class="dv">2</span>]RE{r[<span class="dv">0</span>].deriv(x), r[<span class="dv">1</span>]}), r[<span class="dv">1</span>].deriv(x)})
+    } <span class="kw">else</span> {
+        <span class="kw">return</span> (Seq)([<span class="dv">2</span>]RE{r[<span class="dv">0</span>].deriv(x), r[<span class="dv">1</span>]})
+    }
+}
+
+<span class="co">// testSeq, check for seq and if yes return left and right operand</span>
+<span class="kw">func</span> (r Phi) testSeq() (RE, RE, <span class="dt">bool</span>) {
+    <span class="kw">return</span> (Eps)(<span class="dv">1</span>), (Eps)(<span class="dv">1</span>), <span class="ot">false</span>
+}
+
+<span class="kw">func</span> (r Eps) testSeq() (RE, RE, <span class="dt">bool</span>) {
+    <span class="kw">return</span> (Eps)(<span class="dv">1</span>), (Eps)(<span class="dv">1</span>), <span class="ot">false</span>
+}
+
+<span class="kw">func</span> (r Letter) testSeq() (RE, RE, <span class="dt">bool</span>) {
+    <span class="kw">return</span> (Eps)(<span class="dv">1</span>), (Eps)(<span class="dv">1</span>), <span class="ot">false</span>
+}
+
+<span class="kw">func</span> (r Kleene) testSeq() (RE, RE, <span class="dt">bool</span>) {
+    <span class="kw">return</span> (Eps)(<span class="dv">1</span>), (Eps)(<span class="dv">1</span>), <span class="ot">false</span>
+}
+
+<span class="kw">func</span> (r Alt) testSeq() (RE, RE, <span class="dt">bool</span>) {
+    <span class="kw">return</span> (Eps)(<span class="dv">1</span>), (Eps)(<span class="dv">1</span>), <span class="ot">false</span>
+}
+
+<span class="kw">func</span> (r Seq) testSeq() (RE, RE, <span class="dt">bool</span>) {
+    <span class="kw">return</span> r[<span class="dv">0</span>], r[<span class="dv">1</span>], <span class="ot">true</span>
+}
+
+<span class="co">// getAlt, check for Alt and if yes return list of alternatives,</span>
+<span class="co">// otherwise, just return a list with the object on which we called getAlt</span>
+<span class="kw">func</span> (r Phi) getAlt() []RE {
+    <span class="kw">return</span> []RE{r}
+}
+
+<span class="kw">func</span> (r Eps) getAlt() []RE {
+    <span class="kw">return</span> []RE{r}
+}
+
+<span class="kw">func</span> (r Letter) getAlt() []RE {
+    <span class="kw">return</span> []RE{r}
+}
+
+<span class="kw">func</span> (r Kleene) getAlt() []RE {
+    <span class="kw">return</span> []RE{r}
+}
+
+<span class="kw">func</span> (r Alt) getAlt() []RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Seq) getAlt() []RE {
+    <span class="kw">return</span> []RE{r}
+}
+
+<span class="co">// right associative normal form</span>
+<span class="co">// Seq (Seq (r,s), t) =&gt; Seq (r, Seq (s,t))</span>
+<span class="kw">func</span> (r Eps) rightAssoc() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Phi) rightAssoc() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Letter) rightAssoc() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Kleene) rightAssoc() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Alt) rightAssoc() RE {
+    rs := []RE{}
+    <span class="kw">for</span> _, e := <span class="kw">range</span> r {
+        rs = <span class="fu">append</span>(rs, e.rightAssoc())
+    }
+    <span class="kw">return</span> (Alt)(rs)
+}
+
+<span class="kw">func</span> (r Seq) rightAssoc() RE {
+    <span class="kw">var</span> x RE
+    left := r[<span class="dv">0</span>].rightAssoc()
+    right := r[<span class="dv">1</span>].rightAssoc()
+    l1, l2, b := left.testSeq()
+    <span class="kw">if</span> b {
+        x = (Seq)([<span class="dv">2</span>]RE{l1, (Seq)([<span class="dv">2</span>]RE{l2, right})})
+    } <span class="kw">else</span> {
+        x = (Seq)([<span class="dv">2</span>]RE{left, right})
+    }
+    <span class="kw">return</span> x
+}
+
+<span class="co">// flatten alternatives within a list of alternatives</span>
+<span class="kw">func</span> (r Eps) flatten() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Phi) flatten() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Letter) flatten() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Kleene) flatten() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Seq) flatten() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Alt) flatten() RE {
+    xs := []RE{}
+    <span class="kw">for</span> _, e := <span class="kw">range</span> r {
+        xs = <span class="fu">append</span>(xs, e.flatten().getAlt()...)
+    }
+    <span class="kw">return</span> (Alt)(xs)
+}
+
+<span class="co">// We reduce equality test to equality among their pretty printed representation</span>
+<span class="kw">func</span> eqRE(x RE, y RE) <span class="dt">bool</span> {
+    <span class="kw">return</span> x.pretty() == y.pretty()
+}
+
+<span class="co">//check if elem</span>
+<span class="kw">func</span> elem(x RE, xs []RE) <span class="dt">bool</span> {
+    <span class="kw">for</span> _, e := <span class="kw">range</span> xs {
+        <span class="kw">if</span> eqRE(x, e) {
+            <span class="kw">return</span> <span class="ot">true</span>
+        }
+    }
+    <span class="kw">return</span> <span class="ot">false</span>
+}
+
+<span class="co">//remove duplicates in a slice</span>
+<span class="kw">func</span> nub(r []RE) []RE {
+    curr := []RE{}
+    <span class="kw">for</span> _, e := <span class="kw">range</span> r {
+        <span class="kw">if</span> !elem(e, curr) {
+            curr = <span class="fu">append</span>(curr, e)
+        }
+    }
+    <span class="kw">return</span> curr
+}
+
+<span class="co">//remove duplicate elements in the list of alternatives</span>
+<span class="kw">func</span> (r Eps) noDups() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Phi) noDups() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Letter) noDups() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="kw">func</span> (r Alt) noDups() RE {
+    xs := []RE{}
+    <span class="kw">for</span> _, e := <span class="kw">range</span> r {
+        xs = <span class="fu">append</span>(xs, e.noDups())
+    }
+    <span class="kw">return</span> (Alt)(nub(xs))
+}
+
+<span class="kw">func</span> (r Seq) noDups() RE {
+    <span class="kw">return</span> (Seq)([<span class="dv">2</span>]RE{r[<span class="dv">0</span>].noDups(), r[<span class="dv">1</span>].noDups()})
+}
+
+<span class="kw">func</span> (r Kleene) noDups() RE {
+    <span class="kw">return</span> r
+}
+
+<span class="co">// exhaustive simplification</span>
+<span class="kw">func</span> simp(r RE) RE {
+    <span class="kw">var</span> y RE
+    x := r.rightAssoc().flatten().noDups()
+    <span class="kw">if</span> r.pretty() == x.pretty() {
+        y = x
+    } <span class="kw">else</span> {
+        y = simp(x)
+    }
+    <span class="kw">return</span> y
+}
+
+<span class="kw">func</span> testRegEx() {
+    <span class="kw">var</span> c Letter = Letter(&#39;c&#39;)
+    eps := (Eps)(<span class="dv">1</span>)
+    phi := (Phi)(<span class="dv">1</span>)
+    r1 := (Alt)([]RE{eps, phi})
+    r2 := (Seq)([<span class="dv">2</span>]RE{c, r1})
+
+    fmt.Printf(<span class="st">&quot;%b </span><span class="ch">\n</span><span class="st">&quot;</span>, (r2.deriv(&#39;c&#39;)).nullable())
+}
+
+<span class="kw">func</span> matcher(r RE, s <span class="dt">string</span>) <span class="dt">bool</span> {
+    <span class="kw">var</span> b <span class="dt">bool</span>
+    <span class="kw">if</span> <span class="fu">len</span>(s) == <span class="dv">0</span> {
+        b = r.nullable()
+    } <span class="kw">else</span> {
+        r2 := r.deriv(s[<span class="dv">0</span>])
+        b = matcher(r2, s[<span class="dv">1</span>:<span class="fu">len</span>(s)])
+    }
+    <span class="kw">return</span> b
+
+}
+
+<span class="kw">func</span> testRegEx2() {
+    x := Letter(&#39;x&#39;)
+    r := (Seq)([<span class="dv">2</span>]RE{(Seq)([<span class="dv">2</span>]RE{x, x}), x})
+
+    fmt.Printf(<span class="st">&quot;%s </span><span class="ch">\n</span><span class="st">&quot;</span>, simp(r).pretty())
+}
+
+<span class="kw">func</span> testRegEx3() {
+    x := Letter(&#39;x&#39;)
+    r := (Alt)([]RE{(Alt)([]RE{x, x}), x})
+
+    fmt.Printf(<span class="st">&quot;%s </span><span class="ch">\n</span><span class="st">&quot;</span>, r.pretty())
+}
+
+<span class="kw">func</span> testRegEx4() {
+    x := Letter(&#39;x&#39;)
+    r := (Kleene)([<span class="dv">1</span>]RE{x})
+
+    fmt.Printf(<span class="st">&quot;%s </span><span class="ch">\n</span><span class="st">&quot;</span>, r.pretty())
+
+    r1 := simp(r.deriv(&#39;x&#39;))
+
+    fmt.Printf(<span class="st">&quot;%s </span><span class="ch">\n</span><span class="st">&quot;</span>, r1.pretty())
+
+    r2 := simp(r1.deriv(&#39;x&#39;))
+
+    fmt.Printf(<span class="st">&quot;%s </span><span class="ch">\n</span><span class="st">&quot;</span>, r2.pretty())
+
+    r3 := simp(r2.deriv(&#39;x&#39;))
+
+    fmt.Printf(<span class="st">&quot;%s </span><span class="ch">\n</span><span class="st">&quot;</span>, r3.pretty())
+}
+
+<span class="kw">func</span> main() {
+
+    testRegEx4()
+}</code></pre></div>
+</div>
+</body>
+</html>
