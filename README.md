@@ -20,7 +20,9 @@ Rough overview of Go.
 The lecture notes are divided into three parts.
 
 Part 1: Go basics + higher-order functions + lambda calculus
+
 Part 2: Types, methods and overloading
+
 Part 3: Concurrency
 
 There are two extended examples (parser combinators + regular expression derivatives).
