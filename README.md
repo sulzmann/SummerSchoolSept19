@@ -1,5 +1,19 @@
 # SummerSchoolSept19
 
+Advanced topics of computer science course given as part of the summer school @ NYP.
+There are two parts.
+
+*Algorithms and Data Structures*
+
+Focus on dictionary like data structures: lists, hash tables, and search trees.
+The algorithms are given in pseudo code.
+Time and space analysis of the presented algorithms.
+
+The lecture notes are provided as a pdf file.
+
+
+*Programming language methods and design*
+
 We make use of the Go programming language various aspects of programming language design and analysis.
 Rough overview of Go.
 
